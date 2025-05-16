@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-T">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{personalInfo.name}} - Resume</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 850px; margin: 30px auto; background-color: #fff; padding: 30px 40px; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #007bff; padding-bottom: 20px; }
+        .header h1 { font-size: 2.5em; color: #007bff; margin-bottom: 5px; }
+        .header p { font-size: 1.1em; color: #555; margin: 5px 0; }
+        .section { margin-bottom: 25px; }
+        .section h2 { font-size: 1.5em; color: #007bff; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 15px; }
+        .entry { margin-bottom: 15px; }
+        .entry strong { font-size: 1.1em; }
+        .entry p { margin: 4px 0; }
+        ul { list-style-type: disc; padding-left: 20px; }
+        li { margin-bottom: 5px; }
+        .skills-list { padding-left: 0; list-style-type: none; }
+        .skills-list li { display: inline-block; background-color: #007bff; color: white; padding: 5px 10px; margin: 5px 5px 5px 0; border-radius: 4px; font-size: 0.9em;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{personalInfo.name}}</h1>
+            <p>{{personalInfo.email}} | {{personalInfo.phone}}
+            {{#if personalInfo.linkedin}} | <a href="https://{{personalInfo.linkedin}}" target="_blank">{{personalInfo.linkedin}}</a>{{/if}}
+            </p>
+        </div>
+
+        {{#if education.length}}
+        <div class="section">
+            <h2>教育背景</h2>
+            {{#each education}}
+            <div class="entry">
+                <p><strong>{{school}}</strong></p>
+                <p>{{degree}} in {{major}} ({{startDate}} - {{endDate}})</p>
+            </div>
+            {{/each}}
+        </div>
+        {{/if}}
+
+        {{#if experience.length}}
+        <div class="section">
+            <h2>工作经历</h2>
+            {{#each experience}}
+            <div class="entry">
+                <p><strong>{{position}}</strong> at {{company}}</p>
+                <p>{{startDate}} - {{endDate}}</p>
+                <ul>
+                    {{#each responsibilities}}
+                    <li>{{this}}</li>
+                    {{/each}}
+                </ul>
+            </div>
+            {{/each}}
+        </div>
+        {{/if}}
+
+        {{#if skills.length}}
+        <div class="section">
+            <h2>技能</h2>
+            <ul class="skills-list">
+                {{#each skills}}
+                <li>{{this}}</li>
+                {{/each}}
+            </ul>
+        </div>
+        {{/if}}
+    </div>
+</body>
+</html>
