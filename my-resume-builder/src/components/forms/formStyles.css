@@ -1,0 +1,134 @@
+/* src/components/forms/formStyles.css */
+.card {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  
+  .form-section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .grid-container {
+    display: grid;
+    gap: 15px;
+  }
+  
+  .two-columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .three-columns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px; /* 统一间距 */
+  }
+  
+  .form-group.full-width {
+    grid-column: 1 / -1; /* 占据整行 */
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #454545;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="email"],
+  .form-group input[type="tel"],
+  .form-group input[type="url"],
+  .form-group input[type="date"], /* 考虑日期选择器 */
+  .form-group select, /* 考虑下拉选择 */
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: #fff; /* 确保背景色 */
+  }
+  
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+    outline: none;
+  }
+  
+  .form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+  
+  .button-add, .button-remove, .button-secondary {
+    padding: 8px 15px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    margin-top: 10px; /* 与表单组的间距 */
+  }
+  
+  .button-add {
+    background-color: #28a745; /* 绿色 */
+    color: white;
+  }
+  .button-add:hover {
+    background-color: #218838;
+  }
+  
+  .button-remove {
+    background-color: #dc3545; /* 红色 */
+    color: white;
+  }
+  .button-remove:hover {
+    background-color: #c82333;
+  }
+  
+  .button-secondary {
+    background-color: #6c757d; /* 灰色 */
+    color: white;
+  }
+  .button-secondary:hover {
+    background-color: #5a6268;
+  }
+  
+  
+  .small-button {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    margin-top: 0; /* item-header 内部按钮不需要上边距 */
+  }
+  
+  .full-width-button {
+    width: 100%;
+    padding: 10px 15px;
+    margin-top: 15px;
+  }
+  
+  /* 响应式调整 for grid */
+  @media (max-width: 768px) {
+    .two-columns, .three-columns {
+      grid-template-columns: 1fr; /* 在小屏幕上变为单列 */
+    }
+  }
