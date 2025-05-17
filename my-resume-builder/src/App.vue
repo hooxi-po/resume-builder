@@ -1,74 +1,70 @@
 <template>
   <div class="app-container">
     <header class="app-header">
-      <h1>简历生成器 MVP</h1>
-      <p class="app-subtitle">实时编辑，即时预览</p>
+      <div class="header-content">
+        <h1>简历生成器</h1>
+        <nav class="main-navigation">
+          <router-link to="/" v-if="auth.isAuthenticated">我的简历</router-link>
+          <span v-if="auth.isAuthenticated" class="user-greeting">
+            欢迎, {{ auth.currentUser?.username || auth.currentUser?.email }}!
+          </span>
+          <el-button type="primary" @click="navigateToLogin" v-if="!auth.isAuthenticated && currentRouteName !== 'login'">
+            登录
+          </el-button>
+          <el-button @click="navigateToRegister" v-if="!auth.isAuthenticated && currentRouteName !== 'register'">
+            注册
+          </el-button>
+          <el-button type="danger" @click="handleLogout" v-if="auth.isAuthenticated">
+            登出
+          </el-button>
+        </nav>
+      </div>
     </header>
 
-    <main class="main-content">
-      <section class="editor-pane">
-        <h2 class="pane-title">编辑简历内容</h2>
-        <div class="form-sections-container">
-          <PersonalInfoForm />
-          <EducationForm />
-          <ExperienceForm />
-          <SkillsForm />
-          </div>
-      </section>
-
-      <section class="preview-pane">
-        <h2 class="pane-title">简历预览</h2>
-        <div class="preview-wrapper">
-          <BasicTemplate :resumeData="resume" />
-        </div>
-      </section>
+    <main class="main-content-routed">
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
 
     <footer class="app-footer">
-      <button @click="exportToJson" class="action-button">导出为 JSON</button>
-      <button @click="printPreview" class="action-button">打印/另存为 PDF</button>
-      <p class="footer-note">© 2025 简历生成器</p>
-    </footer>
+      <p class="footer-note">© {{ new Date().getFullYear() }} 简历生成器. 保留所有权利.</p>
+      </footer>
   </div>
 </template>
 
 <script setup>
-// 导入共享的响应式简历数据
-// 假设 resumeData.js 使用 Vue 的 reactive 创建并导出了 resume 对象
-// 如果使用 Pinia，则从 store 中导入
-import { resume } from './resumeData';
+import { onMounted, computed } from 'vue';
+import { useAuthStore } from './stores/authStore'; // 假设您的Pinia认证store
+import { useRouter, useRoute } from 'vue-router';   // 导入Vue Router的hooks
 
-// 导入表单组件
-import PersonalInfoForm from './components/forms/PersonalInfoForm.vue';
-import EducationForm from './components/forms/EducationForm.vue';
-import ExperienceForm from './components/forms/ExperienceForm.vue';
-import SkillsForm from './components/forms/SkillsForm.vue'; // 新增技能表单
+const auth = useAuthStore();
+const router = useRouter();
+const route = useRoute(); // 获取当前路由信息
 
-// 导入预览模板组件
-import BasicTemplate from './components/templates/BasicTemplate.vue';
+// 计算当前路由的名称，用于动态显示登录/注册按钮
+const currentRouteName = computed(() => route.name);
 
-// 导出简历数据为 JSON 文件
-const exportToJson = () => {
-  // 使用 toRaw 获取 resume 代理对象的原始对象，避免导出 Vue 的内部属性
-  // 如果 resume 不是 proxy (例如直接从 Pinia store 获取的普通对象)，可以不用 toRaw
-  // const rawResumeData = toRaw(resume); // 如果 resume 是 proxy
-  const dataStr = JSON.stringify(resume, null, 2); // 使用 resume，假设它是普通JS对象或Pinia state
-  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-  const exportFileDefaultName = 'my_resume.json';
-
-  const linkElement = document.createElement('a');
-  linkElement.setAttribute('href', dataUri);
-  linkElement.setAttribute('download', exportFileDefaultName);
-  document.body.appendChild(linkElement); // 需要添加到DOM中才能触发点击 (在某些浏览器中)
-  linkElement.click();
-  document.body.removeChild(linkElement); // 清理
+const handleLogout = () => {
+  auth.logout();
+  router.push({ name: 'login' }); // 登出后导航到登录页
 };
 
-// 触发浏览器打印功能，用户可以选择“另存为PDF”
-// 这依赖于 BasicTemplate.vue 中定义的 @media print 样式
-const printPreview = () => {
-  window.print();
+const navigateToLogin = () => {
+  router.push({ name: 'login' });
 };
+
+const navigateToRegister = () => {
+  router.push({ name: 'register' });
+};
+
+onMounted(() => {
+  // 应用加载时尝试从localStorage或sessionStorage恢复认证状态
+  // 这个逻辑现在应该在 authStore.initAuth() 中处理
+  auth.initAuth();
+});
 </script>
 
 <style scoped>
@@ -84,152 +80,93 @@ const printPreview = () => {
 .app-header {
   background-color: #ffffff; /* 白色头部 */
   color: #2c3e50; /* 深色文字 */
-  padding: 1.5rem 2rem;
-  text-align: center;
+  padding: 0.8rem 2rem; /* 调整内边距 */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 轻微阴影 */
   border-bottom: 1px solid #e0e0e0;
+  position: sticky; /* 使头部固定 */
+  top: 0;
+  z-index: 1000; /* 确保在其他内容之上 */
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px; /* 限制内容最大宽度 */
+  margin: 0 auto; /* 居中 */
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.5rem; /* 调整标题大小 */
   font-weight: 600;
+  cursor: pointer; /* 可选：如果标题是首页链接 */
+}
+.app-header h1:hover {
+  /* color: var(--el-color-primary); 可选：Element Plus 主题色 */
 }
 
-.app-subtitle {
-  margin: 0.25rem 0 0;
+.main-navigation {
+  display: flex;
+  align-items: center;
+  gap: 1rem; /* 导航项之间的间距 */
+}
+
+.main-navigation a {
+  text-decoration: none;
+  color: #333;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.main-navigation a:hover,
+.main-navigation a.router-link-exact-active { /* 当前激活路由的样式 */
+  background-color: #e9ecef;
+  /* color: var(--el-color-primary); */
+}
+
+.user-greeting {
   font-size: 0.9rem;
   color: #555;
+  margin-right: 0.5rem;
 }
 
-.main-content {
-  display: flex;
+.main-content-routed {
   flex-grow: 1;
   padding: 1.5rem; /* 主内容区内边距 */
-  gap: 1.5rem; /* 编辑区和预览区之间的间距 */
-  overflow: hidden; /* 防止子元素溢出导致滚动条 */
+  width: 100%;
+  max-width: 1200px; /* 限制内容最大宽度 */
+  margin: 0 auto; /* 居中 */
+  box-sizing: border-box;
 }
-
-.editor-pane,
-.preview-pane {
-  background-color: #ffffff;
-  border-radius: 8px; /* 圆角 */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* 确保子元素滚动 */
-}
-
-.editor-pane {
-  flex: 1; /* 编辑区占据更多空间或等分 */
-  min-width: 400px; /* 最小宽度，防止过窄 */
-}
-
-.preview-pane {
-  flex: 1; /* 预览区占据空间，可以调整比例，例如 flex: 0 0 45%; */
-  min-width: 400px; /* 最小宽度 */
-  /* 如果希望预览区有固定A4比例，需要更复杂的CSS或JS计算 */
-}
-
-.pane-title {
-  font-size: 1.25rem;
-  font-weight: 500;
-  padding: 1rem 1.5rem;
-  margin: 0;
-  background-color: #f9fafb; /* 标题栏背景色 */
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.form-sections-container {
-  padding: 1.5rem;
-  overflow-y: auto; /* 使表单内容可滚动 */
-  flex-grow: 1; /* 占据剩余空间 */
-}
-
-.preview-wrapper {
-  padding: 1.5rem; /* 预览内容的外边距 */
-  overflow-y: auto; /* 使预览内容可滚动 */
-  flex-grow: 1;
-  background-color: #e8edf0; /* 预览区域的背景，使其与模板区分 */
-  display: flex; /* 用于居中模板 */
-  justify-content: center; /* 水平居中 */
-  /* align-items: flex-start;  如果模板高度不固定，从顶部开始 */
-}
-
-/* BasicTemplate 组件本身应该有自己的背景色和尺寸控制 */
-/* 例如 .preview-wrapper > div { margin: auto; } 可以帮助居中模板 */
-
 
 .app-footer {
   background-color: #ffffff;
-  padding: 1rem 2rem;
+  padding: 1.5rem 2rem;
   text-align: center;
   border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.action-button {
-  background-color: #007bff; /* 主题蓝色 */
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
-  margin: 0 0.5rem;
-}
-
-.action-button:hover {
-  background-color: #0056b3; /* 深一点的蓝色 */
-}
-
-.action-button:active {
-  transform: translateY(1px);
+  color: #777;
+  font-size: 0.85rem;
 }
 
 .footer-note {
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: #777;
+  margin: 0;
 }
 
-/* 响应式调整 */
-@media (max-width: 992px) { /* 中等屏幕，例如平板 */
-  .main-content {
-    flex-direction: column;
-    padding: 1rem;
-    gap: 1rem;
-  }
-  .editor-pane,
-  .preview-pane {
-    min-width: unset; /* 移除最小宽度限制 */
-    max-height: 70vh; /* 限制高度，避免过长 */
-  }
-  .preview-wrapper {
-     align-items: flex-start; /* 小屏幕时，预览内容从顶部开始 */
-  }
+/* 路由切换过渡效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-@media (max-width: 768px) { /* 小型屏幕，例如手机 */
-  .app-header h1 {
-    font-size: 1.5rem;
-  }
-  .app-subtitle {
-    font-size: 0.8rem;
-  }
-  .pane-title {
-    font-size: 1.1rem;
-    padding: 0.75rem 1rem;
-  }
-  .form-sections-container,
-  .preview-wrapper {
-    padding: 1rem;
-  }
-  .action-button {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.85rem;
-  }
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Element Plus 按钮的微调 (如果需要) */
+.main-navigation .el-button {
+  /* margin-left: 0.5rem; */
 }
 </style>
