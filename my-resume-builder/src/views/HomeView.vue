@@ -1,78 +1,79 @@
 <template>
-  <div class="home-view">
-    <el-container v-if="auth.isAuthenticated">
-      <el-header class="page-header">
-        <h1>我的简历</h1>
-        <el-button type="primary" icon="Plus" @click="createNewResume" round>
-          创建新简历
+  <div class="home-view-styled">
+    <div class="page-title-bar">
+      <h1 class="page-main-title">我的简历</h1>
+      <el-button type="primary" :icon="Plus" @click="createNewResume" round size="large">
+        创建新简历
+      </el-button>
+    </div>
+
+    <div v-if="resumeStore.isLoading" class="loading-state">
+      <el-skeleton :rows="6" animated />
+    </div>
+    <div v-else-if="resumeStore.error" class="error-state">
+      <el-alert :title="resumeStore.error" type="error" show-icon :closable="false" />
+      <el-button @click="retryFetchResumes" style="margin-top: 15px;">重试</el-button>
+    </div>
+    <div v-else-if="!resumeStore.userResumes || resumeStore.userResumes.length === 0" class="empty-state-container">
+      <el-empty description="您还没有创建任何简历，开始创建您的第一份吧！">
+        <el-button type="primary" @click="createNewResume" size="large" :icon="EditPen">
+          立即创建第一份简历
         </el-button>
-      </el-header>
-      <el-main>
-        <div v-if="resumeStore.isLoading" class="loading-state">
-          <el-skeleton :rows="5" animated />
+      </el-empty>
+    </div>
+    <div v-else class="resume-grid">
+      <el-card
+        v-for="resume in resumeStore.userResumes"
+        :key="resume._id" class="resume-card-styled"
+        shadow="hover"
+      >
+        <template #header>
+          <div class="card-header-content">
+            <span class="resume-card-title">{{ resume.resume_name }}</span>
+            <el-dropdown @command="(command) => handleCommand(command, resume._id)" trigger="click"> <el-button text :icon="MoreFilled" class="more-actions-trigger" aria-label="更多操作"></el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit" :icon="Edit">编辑</el-dropdown-item>
+                  <el-dropdown-item command="preview" :icon="View" disabled>预览</el-dropdown-item>
+                  <el-dropdown-item command="delete" :icon="Delete" divided class="delete-dropdown-item">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </template>
+        <div class="resume-card-body-content">
+          <p class="resume-detail-item">
+            <el-icon><Opportunity /></el-icon>
+            职位: {{ resume.resume_data?.personalInfo?.title || '未指定' }}
+          </p>
+          <p class="resume-detail-item last-updated-styled">
+            <el-icon><Clock /></el-icon>
+            最后更新: {{ formatDate(resume.updated_at) }}
+          </p>
         </div>
-        <div v-else-if="resumeStore.error" class="error-state">
-          <el-alert :title="resumeStore.error" type="error" show-icon :closable="false" />
-        </div>
-        <div v-else-if="resumeStore.userResumes.length === 0" class="empty-state">
-          <el-empty description="您还没有创建任何简历">
-            <el-button type="primary" @click="createNewResume" size="large">立即创建第一份简历</el-button>
-          </el-empty>
-        </div>
-        <div v-else class="resume-list">
-          <el-row :gutter="20">
-            <el-col
-              v-for="resume in resumeStore.userResumes"
-              :key="resume._id" :xs="24" :sm="12" :md="8" :lg="6"
-            >
-              <el-card class="resume-card" shadow="hover">
-                <template #header>
-                  <div class="resume-card-header">
-                    <span class="resume-name">{{ resume.resume_name }}</span>
-                    <el-dropdown @command="(command) => handleCommand(command, resume._id)">
-                      <el-button type="primary" link icon="MoreFilled" class="more-actions-button" />
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item command="edit" icon="Edit">编辑</el-dropdown-item>
-                          <el-dropdown-item command="preview" icon="View">预览 (待实现)</el-dropdown-item>
-                          <el-dropdown-item command="delete" icon="Delete" divided class="delete-item">删除</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
-                  </div>
-                </template>
-                <div class="resume-card-body">
-                  <p class="last-updated">
-                    最后更新: {{ formatDate(resume.updated_at) }}
-                  </p>
-                  <p class="resume-details-placeholder">
-                    {{ resume.resume_data?.personalInfo?.title || '暂无职位信息' }}
-                  </p>
-                </div>
-                <template #footer>
-                  <el-button type="primary" plain @click="editResume(resume._id)" class="full-width-button" round>
-                    打开编辑器
-                  </el-button>
-                </template>
-              </el-card>
-            </el-col>
-          </el-row>
-        </div>
-      </el-main>
-    </el-container>
-    <div v-else>
-      <p>请先 <router-link :to="{ name: 'login' }">登录</router-link> 以查看您的简历。</p>
+        <template #footer>
+          <el-button type="primary" plain @click="editResume(resume._id)" class="edit-button-full" round> <el-icon style="margin-right: 5px;"><EditPen /></el-icon>
+            打开编辑器
+          </el-button>
+        </template>
+      </el-card>
     </div>
   </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue';
-// 修改: 使用相对路径导入 store
+// 使用相对路径导入 store
 import { useAuthStore } from '../stores/authStore.js';
 import { useResumeStore } from '../stores/resumeStore.js';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+// 按需导入 Element Plus 组件和图标
+import { 
+  ElMessage, ElMessageBox, ElButton, ElCard, 
+  ElSkeleton, ElAlert, ElEmpty, ElDropdown, 
+  ElDropdownMenu, ElDropdownItem, ElIcon 
+} from 'element-plus';
+import { Plus, MoreFilled, Edit, View, Delete, Opportunity, Clock, EditPen } from '@element-plus/icons-vue';
 
 const auth = useAuthStore();
 const resumeStore = useResumeStore();
@@ -88,20 +89,16 @@ const createNewResume = () => {
   router.push({ name: 'resumeNew' });
 };
 
-// resumeId 参数现在期望是 _id 的值
-const editResume = (resumeId) => {
+const editResume = (resumeId) => { // resumeId 应该是 _id
   if (!resumeId) {
-    console.error("Edit resume called with undefined ID");
     ElMessage.error('无法编辑简历：ID 未定义。');
     return;
   }
   router.push({ name: 'resumeEdit', params: { id: resumeId } });
 };
 
-// resumeId 参数现在期望是 _id 的值
-const deleteResume = async (resumeId) => {
+const deleteResume = async (resumeId) => { // resumeId 应该是 _id
   if (!resumeId) {
-    console.error("Delete resume called with undefined ID");
     ElMessage.error('无法删除简历：ID 未定义。');
     return;
   }
@@ -113,27 +110,23 @@ const deleteResume = async (resumeId) => {
         confirmButtonText: '确定删除',
         cancelButtonText: '取消',
         type: 'warning',
+        draggable: true, // Element Plus 2.2.0+
       }
     );
-    await resumeStore.deleteResume(resumeId); // store 中的 deleteResume 也需要能处理这个 ID
-    ElMessage({
-      type: 'success',
-      message: '简历删除成功',
-    });
+    await resumeStore.deleteResume(resumeId); // 确保 store 的 deleteResume 使用的是 _id
+    ElMessage.success('简历删除成功');
   } catch (error) {
+    // ElMessageBox.confirm 在用户点击取消或关闭时会 reject 一个字符串 "cancel" 或 "close"
     if (error !== 'cancel' && error !== 'close') {
-      console.error("删除简历时发生错误或用户取消:", error);
-      // ElMessage({ type: 'error', message: resumeStore.error || '删除失败' });
+      console.info("用户取消删除或删除过程中发生错误:", error);
     } else {
-      ElMessage({ type: 'info', message: '已取消删除' });
+      ElMessage.info('已取消删除');
     }
   }
 };
 
-// resumeId 参数现在期望是 _id 的值
-const handleCommand = (command, resumeId) => {
+const handleCommand = (command, resumeId) => { // resumeId 应该是 _id
   if (!resumeId && (command === 'edit' || command === 'delete' || command === 'preview')) {
-      console.error(`Command '${command}' called with undefined resume ID`);
       ElMessage.error(`操作失败：简历ID未定义。`);
       return;
   }
@@ -143,94 +136,168 @@ const handleCommand = (command, resumeId) => {
     deleteResume(resumeId);
   } else if (command === 'preview') {
     ElMessage.info('预览功能待实现');
-    // router.push({ name: 'resumePreview', params: { id: resumeId } });
   }
 };
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
-  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  return new Date(dateString).toLocaleDateString(undefined, options);
+  try {
+    const date = new Date(dateString);
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+      return '无效日期';
+    }
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', month: '2-digit', day: '2-digit', 
+      hour: '2-digit', minute: '2-digit' 
+    });
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return '日期格式错误';
+  }
+};
+
+const retryFetchResumes = () => {
+    if (auth.isAuthenticated) {
+        resumeStore.fetchUserResumes();
+    } else {
+        ElMessage.warning("请先登录后再重试。");
+    }
 };
 </script>
 
 <style scoped>
-.home-view {
-  padding: 0;
+.home-view-styled {
+  padding: 25px 30px; 
+  background-color: #f8f9fa; 
+  min-height: calc(100vh - 60px - 70px); /* 假设头部60px, 页脚70px, 根据实际情况调整 */
 }
-.page-header {
+
+.page-title-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #ebeef5;
-  background-color: #fff;
-  margin-bottom: 20px;
+  margin-bottom: 30px; 
+  padding-bottom: 20px; 
+  border-bottom: 1px solid #dee2e6; 
 }
-.page-header h1 {
+
+.page-main-title {
+  font-size: 2.25rem; 
+  font-weight: 700;
+  color: #212529; 
   margin: 0;
-  font-size: 1.8rem;
-  color: #303133;
 }
 
-.loading-state, .error-state, .empty-state {
-  padding: 20px;
+.loading-state,
+.error-state,
+.empty-state-container {
+  margin-top: 50px; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  padding: 20px;
+}
+.error-state .el-button {
+  margin-top: 20px; 
 }
 
-.resume-list {
-  padding: 0 20px;
+.resume-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+  gap: 25px; 
 }
 
-.resume-card {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  transition: box-shadow 0.3s ease-in-out;
-}
-.resume-card:hover {
-  box-shadow: var(--el-box-shadow-dark);
+.resume-card-styled {
+  border-radius: 10px; 
+  transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff; 
 }
 
-.resume-card-header {
+.resume-card-styled:hover {
+  transform: translateY(-6px); 
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); 
+}
+
+.card-header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
-.resume-name {
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #303133;
+
+.resume-card-title {
+  font-size: 1.3rem; 
+  font-weight: 600;
+  color: #343a40; 
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: calc(100% - 40px); 
-}
-.more-actions-button {
-  padding: 5px;
-  font-size: 1.2rem;
-}
-.el-dropdown-menu__item.delete-item {
-  color: var(--el-color-danger);
-}
-.el-dropdown-menu__item.delete-item:hover {
-  background-color: var(--el-color-danger-light-9);
-  color: var(--el-color-danger);
+  margin-right: 10px;
 }
 
-.resume-card-body {
-  font-size: 0.9rem;
-  color: #606266;
-  min-height: 60px;
+.more-actions-trigger.el-button { 
+  padding: 6px;
+  border-radius: 50%;
+  font-size: 1.1rem; 
 }
-.last-updated {
-  font-size: 0.8rem;
-  color: #909399;
-  margin-bottom: 8px;
+.more-actions-trigger.el-button:hover {
+  background-color: #f1f3f5; 
 }
-.resume-details-placeholder {
-  /* 样式用于占位符文本 */
+
+.resume-card-body-content {
+  font-size: 0.95rem; 
+  color: #495057; 
+  line-height: 1.7; 
+  flex-grow: 1;
+  padding: 15px 0 10px 0; 
 }
-.full-width-button {
+
+.resume-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px; 
+  margin-bottom: 10px; 
+}
+.resume-detail-item .el-icon {
+  color: #6c757d; 
+  font-size: 1.1em; 
+}
+
+.last-updated-styled {
+  font-size: 0.85rem; 
+  color: #6c757d;
+}
+
+.edit-button-full.el-button { 
   width: 100%;
+  font-weight: 500;
+  padding-top: 12px; 
+  padding-bottom: 12px;
+  font-size: 0.95rem;
+}
+.edit-button-full.el-button .el-icon {
+  margin-right: 6px;
+}
+
+.delete-dropdown-item { 
+  color: var(--el-color-danger) !important;
+}
+.delete-dropdown-item:hover,
+.delete-dropdown-item:focus {
+  background-color: var(--el-color-danger-light-9) !important;
+  color: var(--el-color-danger) !important;
+}
+
+.empty-state-container .el-button {
+  font-size: 1rem;
+  padding: 12px 24px;
+}
+.empty-state-container .el-empty {
+    padding-bottom: 20px; 
 }
 </style>

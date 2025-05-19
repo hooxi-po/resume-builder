@@ -1,8 +1,8 @@
 <template>
   <div class="app-container">
     <header class="app-header">
-      <div class="header-content">
-        <h1>简历生成器</h1>
+      <div class="header-content" :class="{ 'full-width-header-content': isEditorRoute }">
+        <router-link to="/" class="header-title-link"><h1>简历生成器</h1></router-link>
         <nav class="main-navigation">
           <router-link to="/" v-if="auth.isAuthenticated">我的简历</router-link>
           <span v-if="auth.isAuthenticated" class="user-greeting">
@@ -21,7 +21,7 @@
       </div>
     </header>
 
-    <main class="main-content-routed">
+    <main class="main-content-routed" :class="{ 'full-width-content': isEditorRoute }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -29,27 +29,31 @@
       </router-view>
     </main>
 
-    <footer class="app-footer">
+    <footer class="app-footer" v-if="!isEditorRoute">
       <p class="footer-note">© {{ new Date().getFullYear() }} 简历生成器. 保留所有权利.</p>
-      </footer>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue';
-import { useAuthStore } from './stores/authStore'; // 假设您的Pinia认证store
-import { useRouter, useRoute } from 'vue-router';   // 导入Vue Router的hooks
+import { computed } from 'vue';
+import { useAuthStore } from './stores/authStore'; // 确保路径正确
+import { useRouter, useRoute } from 'vue-router';
+// import { ElButton } from 'element-plus'; // 如果按需导入
 
 const auth = useAuthStore();
 const router = useRouter();
-const route = useRoute(); // 获取当前路由信息
+const route = useRoute();
 
-// 计算当前路由的名称，用于动态显示登录/注册按钮
 const currentRouteName = computed(() => route.name);
+
+const isEditorRoute = computed(() => {
+  return route.name === 'resumeEdit' || route.name === 'resumeNew';
+});
 
 const handleLogout = () => {
   auth.logout();
-  router.push({ name: 'login' }); // 登出后导航到登录页
+  router.push({ name: 'login' });
 };
 
 const navigateToLogin = () => {
@@ -60,11 +64,7 @@ const navigateToRegister = () => {
   router.push({ name: 'register' });
 };
 
-onMounted(() => {
-  // 应用加载时尝试从localStorage或sessionStorage恢复认证状态
-  // 这个逻辑现在应该在 authStore.initAuth() 中处理
-  auth.initAuth();
-});
+auth.initAuth();
 </script>
 
 <style scoped>
@@ -73,17 +73,20 @@ onMounted(() => {
   flex-direction: column;
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f4f7f9; /* 淡雅的背景色 */
+  background-color: #f4f7f9;
   color: #333;
 }
 
 .app-header {
-  background-color: #ffffff; /* 白色头部 */
-  color: #2c3e50; /* 深色文字 */
-  padding: 0.8rem 2rem; /* 调整内边距 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 轻微阴影 */
+  background-color: #ffffff;
+  color: #2c3e50;
+  /* padding 内边距由 .header-content 控制 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   border-bottom: 1px solid #e0e0e0;
-  position: sticky; /* 使头部固定 */
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: sticky; /* 使页眉在所有页面都固定 */
   top: 0;
   z-index: 1000; /* 确保在其他内容之上 */
 }
@@ -92,24 +95,37 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px; /* 限制内容最大宽度 */
-  margin: 0 auto; /* 居中 */
+  /* 默认情况下，头部内容区是居中且有最大宽度的 */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.8rem 2rem; /* 默认内边距 */
+  transition: max-width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+}
+
+/* 当是编辑器路由时，头部内容区也全宽 */
+.header-content.full-width-header-content {
+  max-width: none;
+  /* 确保编辑器页面的全局页眉内边距与 ResumeEditorView 自己的页眉内边距协调 */
+  /* ResumeEditorView 的 .editor-header padding 是 10px 25px */
+  padding: 0.8rem 25px; /* 例如，保持垂直方向一致，水平方向与编辑器头部一致 */
+  margin: 0;
+}
+
+.header-title-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem; /* 调整标题大小 */
+  font-size: 1.5rem;
   font-weight: 600;
-  cursor: pointer; /* 可选：如果标题是首页链接 */
-}
-.app-header h1:hover {
-  /* color: var(--el-color-primary); 可选：Element Plus 主题色 */
 }
 
 .main-navigation {
   display: flex;
   align-items: center;
-  gap: 1rem; /* 导航项之间的间距 */
+  gap: 1rem;
 }
 
 .main-navigation a {
@@ -121,9 +137,8 @@ onMounted(() => {
 }
 
 .main-navigation a:hover,
-.main-navigation a.router-link-exact-active { /* 当前激活路由的样式 */
+.main-navigation a.router-link-exact-active {
   background-color: #e9ecef;
-  /* color: var(--el-color-primary); */
 }
 
 .user-greeting {
@@ -134,11 +149,20 @@ onMounted(() => {
 
 .main-content-routed {
   flex-grow: 1;
-  padding: 1.5rem; /* 主内容区内边距 */
   width: 100%;
-  max-width: 1200px; /* 限制内容最大宽度 */
-  margin: 0 auto; /* 居中 */
   box-sizing: border-box;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  transition: max-width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content-routed.full-width-content {
+  max-width: none;
+  padding: 0; /* 编辑器视图自己控制其内部边距 */
+  margin: 0;
 }
 
 .app-footer {
@@ -148,13 +172,15 @@ onMounted(() => {
   border-top: 1px solid #e0e0e0;
   color: #777;
   font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .footer-note {
   margin: 0;
 }
 
-/* 路由切换过渡效果 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
@@ -163,10 +189,5 @@ onMounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-/* Element Plus 按钮的微调 (如果需要) */
-.main-navigation .el-button {
-  /* margin-left: 0.5rem; */
 }
 </style>
