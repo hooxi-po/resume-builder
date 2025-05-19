@@ -4,8 +4,8 @@
 
     <div class="skill-category">
       <h4>技术技能 (例如: JavaScript, Vue.js, Python, SQL)</h4>
-      <div v-for="(skill, index) in resume.skills.technical" :key="'tech-' + index" class="skill-item">
-        <input type="text" v-model="resume.skills.technical[index]" placeholder="技术技能" />
+      <div v-for="(skill, index) in props.resumeData.skills.technical" :key="'tech-' + index" class="skill-item">
+        <input type="text" v-model="props.resumeData.skills.technical[index]" placeholder="技术技能" />
         <button @click="removeSkill('technical', index)" class="button-remove-inline" aria-label="删除此技能">&times;</button>
       </div>
       <button @click="addSkill('technical')" class="button-add-inline">+ 添加技术技能</button>
@@ -13,8 +13,8 @@
 
     <div class="skill-category">
       <h4>语言能力 (例如: 英语 CET-6, 中文 母语)</h4>
-      <div v-for="(lang, index) in resume.skills.languages" :key="'lang-' + index" class="skill-item">
-        <input type="text" v-model="resume.skills.languages[index]" placeholder="语言及水平" />
+      <div v-for="(lang, index) in props.resumeData.skills.languages" :key="'lang-' + index" class="skill-item">
+        <input type="text" v-model="props.resumeData.skills.languages[index]" placeholder="语言及水平" />
         <button @click="removeSkill('languages', index)" class="button-remove-inline" aria-label="删除此语言能力">&times;</button>
       </div>
       <button @click="addSkill('languages')" class="button-add-inline">+ 添加语言能力</button>
@@ -22,8 +22,8 @@
 
     <div class="skill-category">
       <h4>软技能 (可选, 例如: 团队合作, 沟通能力, 解决问题)</h4>
-      <div v-for="(softSkill, index) in resume.skills.soft" :key="'soft-' + index" class="skill-item">
-        <input type="text" v-model="resume.skills.soft[index]" placeholder="软技能" />
+      <div v-for="(softSkill, index) in props.resumeData.skills.soft" :key="'soft-' + index" class="skill-item">
+        <input type="text" v-model="props.resumeData.skills.soft[index]" placeholder="软技能" />
         <button @click="removeSkill('soft', index)" class="button-remove-inline" aria-label="删除此技能">&times;</button>
       </div>
       <button @click="addSkill('soft')" class="button-add-inline">+ 添加软技能</button>
@@ -33,22 +33,40 @@
 </template>
 
 <script setup>
-import { resume } from '../../resumeData';
+import { defineProps } from 'vue';
+
+// 修改: 接收 resumeData prop
+const props = defineProps({
+  resumeData: {
+    type: Object,
+    required: true
+  }
+});
 
 const addSkill = (category) => {
-  if (resume.skills[category] && Array.isArray(resume.skills[category])) {
-    resume.skills[category].push(''); // 添加一个空字符串供用户输入
+  // 确保 props.resumeData.skills 对象存在且对应类别是数组
+  if (props.resumeData.skills && props.resumeData.skills[category]) {
+    if (!Array.isArray(props.resumeData.skills[category])) {
+      props.resumeData.skills[category] = []; // 如果不是数组，则初始化为空数组
+    }
+    props.resumeData.skills[category].push(''); // 添加一个空字符串供用户输入
+  } else if (props.resumeData.skills) {
+    // 如果 skills 对象存在但类别不存在，则创建该类别数组
+    props.resumeData.skills[category] = [''];
+    console.warn(`Skill category '${category}' was not an array. Initialized.`);
   } else {
-    // 如果resume.skills中尚不存在该category，则初始化它
-    // 这通常不应该发生，因为resumeData.js中已经定义了结构
-    console.warn(`Skill category '${category}' does not exist or is not an array. Initializing.`);
-    resume.skills[category] = [''];
+    // 如果 skills 对象本身不存在 (理论上不应该，因为 store 中有默认结构)
+    props.resumeData.skills = { [category]: [''] };
+    console.warn(`Skills object or category '${category}' did not exist. Initialized.`);
   }
 };
 
 const removeSkill = (category, index) => {
-  if (resume.skills[category] && Array.isArray(resume.skills[category])) {
-    resume.skills[category].splice(index, 1);
+  if (props.resumeData.skills &&
+      props.resumeData.skills[category] &&
+      Array.isArray(props.resumeData.skills[category]) &&
+      props.resumeData.skills[category].length > index) {
+    props.resumeData.skills[category].splice(index, 1);
   }
 };
 </script>
@@ -81,16 +99,15 @@ const removeSkill = (category, index) => {
 
 .skill-item input[type="text"] {
   flex-grow: 1;
-  margin-right: 8px; /* 输入框和删除按钮之间的间距 */
+  margin-right: 8px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9em;
+  box-sizing: border-box;
 }
 
-/* .button-add-inline 和 .button-remove-inline 样式已在 formStyles.css 或 ExperienceForm.vue 中定义 */
-/* 如果没有，需要从那里复制或确保 formStyles.css 包含它们 */
-.button-add-inline {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-color: #a5d6a7;
-  margin-top: 5px;
+.button-add-inline, .button-remove-inline {
   padding: 6px 10px;
   font-size: 0.85rem;
   border-radius: 4px;
@@ -98,6 +115,12 @@ const removeSkill = (category, index) => {
   border: 1px solid;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
+}
+.button-add-inline {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+  margin-top: 5px;
 }
 .button-add-inline:hover {
   background-color: #dcedc8;
@@ -107,13 +130,8 @@ const removeSkill = (category, index) => {
   background-color: #ffebee;
   color: #c62828;
   border-color: #ef9a9a;
-  padding: 8px; /* 调整使其更像一个图标按钮 */
+  padding: 8px;
   line-height: 1;
-  font-size: 0.85rem; /* 确保和添加按钮大小协调 */
-  border-radius: 4px;
-  border: 1px solid;
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
 }
 .button-remove-inline:hover {
   background-color: #ffcdd2;

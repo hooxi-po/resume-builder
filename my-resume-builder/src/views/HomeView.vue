@@ -23,14 +23,13 @@
           <el-row :gutter="20">
             <el-col
               v-for="resume in resumeStore.userResumes"
-              :key="resume.id"
-              :xs="24" :sm="12" :md="8" :lg="6"
+              :key="resume._id" :xs="24" :sm="12" :md="8" :lg="6"
             >
               <el-card class="resume-card" shadow="hover">
                 <template #header>
                   <div class="resume-card-header">
                     <span class="resume-name">{{ resume.resume_name }}</span>
-                    <el-dropdown @command="(command) => handleCommand(command, resume.id)">
+                    <el-dropdown @command="(command) => handleCommand(command, resume._id)">
                       <el-button type="primary" link icon="MoreFilled" class="more-actions-button" />
                       <template #dropdown>
                         <el-dropdown-menu>
@@ -51,9 +50,9 @@
                   </p>
                 </div>
                 <template #footer>
-                   <el-button type="primary" plain @click="editResume(resume.id)" class="full-width-button" round>
-                     打开编辑器
-                   </el-button>
+                  <el-button type="primary" plain @click="editResume(resume._id)" class="full-width-button" round>
+                    打开编辑器
+                  </el-button>
                 </template>
               </el-card>
             </el-col>
@@ -68,11 +67,12 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue';
-import { useAuthStore } from '/home/leven/24-25/resume-builder/my-resume-builder/src/stores/authStore.js';
-import { useResumeStore } from '/home/leven/24-25/resume-builder/my-resume-builder/src/stores/resumeStore'; // 假设您已创建 resumeStore
+import { onMounted } from 'vue';
+// 修改: 使用相对路径导入 store
+import { useAuthStore } from '../stores/authStore.js';
+import { useResumeStore } from '../stores/resumeStore.js';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus'; // 用于消息提示和确认框
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const auth = useAuthStore();
 const resumeStore = useResumeStore();
@@ -85,15 +85,26 @@ onMounted(() => {
 });
 
 const createNewResume = () => {
-  // resumeStore.createNewLocalResume(); // 在 store 中初始化一个空的本地简历对象
-  router.push({ name: 'resumeNew' }); // 跳转到新建简历的路由
+  router.push({ name: 'resumeNew' });
 };
 
+// resumeId 参数现在期望是 _id 的值
 const editResume = (resumeId) => {
+  if (!resumeId) {
+    console.error("Edit resume called with undefined ID");
+    ElMessage.error('无法编辑简历：ID 未定义。');
+    return;
+  }
   router.push({ name: 'resumeEdit', params: { id: resumeId } });
 };
 
+// resumeId 参数现在期望是 _id 的值
 const deleteResume = async (resumeId) => {
+  if (!resumeId) {
+    console.error("Delete resume called with undefined ID");
+    ElMessage.error('无法删除简历：ID 未定义。');
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       '确定要删除这份简历吗？此操作无法撤销。',
@@ -104,31 +115,35 @@ const deleteResume = async (resumeId) => {
         type: 'warning',
       }
     );
-    // 用户点击了确定
-    await resumeStore.deleteResume(resumeId);
+    await resumeStore.deleteResume(resumeId); // store 中的 deleteResume 也需要能处理这个 ID
     ElMessage({
       type: 'success',
       message: '简历删除成功',
     });
   } catch (error) {
-    // 用户点击了取消或关闭对话框，或者删除过程中发生错误
     if (error !== 'cancel' && error !== 'close') {
-        // ElMessage({ type: 'error', message: resumeStore.error || '删除失败' });
-        console.error("删除简历时发生错误或用户取消:", error);
+      console.error("删除简历时发生错误或用户取消:", error);
+      // ElMessage({ type: 'error', message: resumeStore.error || '删除失败' });
     } else {
-        ElMessage({ type: 'info', message: '已取消删除' });
+      ElMessage({ type: 'info', message: '已取消删除' });
     }
   }
 };
 
+// resumeId 参数现在期望是 _id 的值
 const handleCommand = (command, resumeId) => {
+  if (!resumeId && (command === 'edit' || command === 'delete' || command === 'preview')) {
+      console.error(`Command '${command}' called with undefined resume ID`);
+      ElMessage.error(`操作失败：简历ID未定义。`);
+      return;
+  }
   if (command === 'edit') {
     editResume(resumeId);
   } else if (command === 'delete') {
     deleteResume(resumeId);
   } else if (command === 'preview') {
     ElMessage.info('预览功能待实现');
-    // router.push({ name: 'resumePreview', params: { id: resumeId } }); // 假设有预览路由
+    // router.push({ name: 'resumePreview', params: { id: resumeId } });
   }
 };
 
@@ -141,14 +156,14 @@ const formatDate = (dateString) => {
 
 <style scoped>
 .home-view {
-  padding: 0; /* 通常视图本身不需要内边距，由内部 el-container 控制 */
+  padding: 0;
 }
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #ebeef5; /* Element Plus 分割线颜色 */
+  border-bottom: 1px solid #ebeef5;
   background-color: #fff;
   margin-bottom: 20px;
 }
@@ -164,7 +179,7 @@ const formatDate = (dateString) => {
 }
 
 .resume-list {
-  padding: 0 20px; /* 给列表一些左右内边距 */
+  padding: 0 20px;
 }
 
 .resume-card {
@@ -188,11 +203,11 @@ const formatDate = (dateString) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: calc(100% - 40px); /* 给右侧按钮留空间 */
+  max-width: calc(100% - 40px); 
 }
 .more-actions-button {
-  padding: 5px; /* 使图标按钮点击区域更大一些 */
-  font-size: 1.2rem; /* 增大图标 */
+  padding: 5px;
+  font-size: 1.2rem;
 }
 .el-dropdown-menu__item.delete-item {
   color: var(--el-color-danger);
@@ -202,15 +217,14 @@ const formatDate = (dateString) => {
   color: var(--el-color-danger);
 }
 
-
 .resume-card-body {
   font-size: 0.9rem;
   color: #606266;
-  min-height: 60px; /* 给内容一些最小高度 */
+  min-height: 60px;
 }
 .last-updated {
   font-size: 0.8rem;
-  color: #909399; /* Element Plus 提示文字颜色 */
+  color: #909399;
   margin-bottom: 8px;
 }
 .resume-details-placeholder {

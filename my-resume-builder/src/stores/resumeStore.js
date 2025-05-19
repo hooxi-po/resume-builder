@@ -37,7 +37,9 @@ export const useResumeStore = defineStore('resume', {
       this.error = null;
       try {
         const response = await apiClient.get('/resumes');
-        this.userResumes = response.data;
+        console.log('Fetched user resumes raw response.data:', JSON.parse(JSON.stringify(response.data)));
+        this.userResumes = response.data; // 期望 response.data 中的对象使用 _id
+        console.log('resumeStore.userResumes after assignment:', JSON.parse(JSON.stringify(this.userResumes)));
       } catch (err) {
         this.error = err.response?.data?.detail || '获取简历列表失败。';
         console.error('Error fetching user resumes:', err.response || err);
@@ -46,7 +48,7 @@ export const useResumeStore = defineStore('resume', {
       }
     },
 
-    async fetchResumeById(resumeId) {
+    async fetchResumeById(resumeId) { // resumeId 期望是 _id
       const authStore = useAuthStore();
       if (!authStore.isAuthenticated) {
         this.error = '用户未认证，无法获取简历。';
@@ -56,8 +58,10 @@ export const useResumeStore = defineStore('resume', {
       this.error = null;
       this.currentResume = null;
       try {
-        const response = await apiClient.get(`/resumes/${resumeId}`);
-        this.currentResume = response.data;
+        const response = await apiClient.get(`/resumes/${resumeId}`); // 后端期望路径中的 resumeId 是 _id
+        console.log(`Fetched resume by ID (${resumeId}) raw response.data:`, JSON.parse(JSON.stringify(response.data)));
+        this.currentResume = response.data; // 期望 response.data 中的对象使用 _id
+        console.log(`resumeStore.currentResume after assignment (ID: ${resumeId}):`, JSON.parse(JSON.stringify(this.currentResume)));
       } catch (err) {
         this.error = err.response?.data?.detail || `获取简历 (ID: ${resumeId}) 失败。`;
         console.error(`Error fetching resume ${resumeId}:`, err.response || err);
@@ -65,43 +69,39 @@ export const useResumeStore = defineStore('resume', {
         this.isLoading = false;
       }
     },
-
+    
     createNewLocalResume() {
       const newResumeDataContent = JSON.parse(JSON.stringify(defaultNewResumeData()));
       this.currentResume = {
+        // _id: undefined, // 新建的本地简历在保存到后端前没有 _id
         resume_name: '未命名简历',
         resume_data: newResumeDataContent,
       };
       this.error = null;
-      console.log('Created new local resume structure:', this.currentResume);
+      console.log('Created new local resume structure:', JSON.parse(JSON.stringify(this.currentResume)));
     },
 
     async saveCurrentResume() {
       const authStore = useAuthStore();
       if (!authStore.isAuthenticated) {
         this.error = '用户未认证，无法保存简历。';
-        return null; 
+        return null;
       }
       if (!this.currentResume || !this.currentResume.resume_data) {
         this.error = '没有当前简历数据可保存。';
         console.error('saveCurrentResume called with no current resume data.');
         return null;
       }
-
-      // MODIFICATION: Frontend validation for resume_name
       if (!this.currentResume.resume_name || this.currentResume.resume_name.trim() === '') {
         this.error = '简历名称不能为空。';
-        // 如果您在store中也想使用Element Plus的ElMessage，需要确保它已正确配置或传递
-        // import { ElMessage } from 'element-plus'; // 通常不在store中直接使用UI组件的通知
         console.error('Resume name cannot be empty.');
         return null;
       }
-
       this.isLoading = true;
       this.error = null;
-
       const resumeDataPayload = JSON.parse(JSON.stringify(this.currentResume.resume_data));
-
+      
+      // 清理 resumeDataPayload 中的空字符串为 null (如果后端期望如此)
       const pi = resumeDataPayload.personalInfo;
       if (pi) {
         if (pi.avatar === '') pi.avatar = null;
@@ -122,26 +122,33 @@ export const useResumeStore = defineStore('resume', {
           if (cert.credentialUrl === '') cert.credentialUrl = null;
         });
       }
-
+      
       const payload = {
-        resume_name: this.currentResume.resume_name.trim(), // MODIFICATION: Trim the resume name
+        resume_name: this.currentResume.resume_name.trim(),
         resume_data: resumeDataPayload,
       };
       
-      // console.log("Payload to be sent:", JSON.stringify(payload, null, 2)); // Uncomment for debugging
+      console.log("Payload to be sent to backend:", JSON.parse(JSON.stringify(payload)));
+      if (this.currentResume._id) { // 前端现在使用 _id
+        console.log("Saving existing resume with _ID:", this.currentResume._id);
+      } else {
+        console.log("Creating new resume (no _ID yet).");
+      }
 
       try {
         let response;
-        if (this.currentResume.id) {
-          response = await apiClient.put(`/resumes/${this.currentResume.id}`, payload);
+        if (this.currentResume._id) { // 使用 this.currentResume._id
+          response = await apiClient.put(`/resumes/${this.currentResume._id}`, payload);
         } else {
           response = await apiClient.post('/resumes', payload);
         }
-        this.currentResume = response.data;
+        console.log('Save/Create resume raw response.data:', JSON.parse(JSON.stringify(response.data)));
+        this.currentResume = response.data; // 后端应返回包含 _id 的完整简历对象
+        console.log('resumeStore.currentResume after save/create:', JSON.parse(JSON.stringify(this.currentResume)));
+        
         await this.fetchUserResumes();
         return response.data;
       } catch (err) {
-        // MODIFICATION: More robust error message parsing
         let errorMessages = "保存简历失败：";
         if (err.response && err.response.data && err.response.data.detail) {
             const errorDetails = err.response.data.detail;
@@ -169,7 +176,7 @@ export const useResumeStore = defineStore('resume', {
       }
     },
 
-    async deleteResume(resumeId) {
+    async deleteResume(resumeId) { // resumeId 期望是 _id
       const authStore = useAuthStore();
       if (!authStore.isAuthenticated) {
         this.error = '用户未认证，无法删除简历。';
@@ -178,9 +185,11 @@ export const useResumeStore = defineStore('resume', {
       this.isLoading = true;
       this.error = null;
       try {
-        await apiClient.delete(`/resumes/${resumeId}`);
-        this.userResumes = this.userResumes.filter(r => r.id !== resumeId);
-        if (this.currentResume && this.currentResume.id === resumeId) {
+        await apiClient.delete(`/resumes/${resumeId}`); // 后端期望路径中的 resumeId 是 _id
+        // 使用 _id 进行过滤
+        this.userResumes = this.userResumes.filter(r => r._id !== resumeId);
+        // 检查 currentResume._id
+        if (this.currentResume && this.currentResume._id === resumeId) {
           this.currentResume = null;
         }
         return true;
