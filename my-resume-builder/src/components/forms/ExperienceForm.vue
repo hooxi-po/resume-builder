@@ -1,6 +1,19 @@
 <template>
   <div class="form-section card">
     <h3 class="form-section-title">工作经历</h3>
+
+    <!-- New Textarea for Job Description/Keywords -->
+    <div class="form-group">
+      <label for="job-context-text">职位描述/相关关键词 (用于AI建议):</label>
+      <textarea
+        id="job-context-text"
+        v-model="jobContextText"
+        rows="3"
+        placeholder="在此粘贴职位描述或输入相关技能关键词，以便AI提供更精准的建议。"
+        class="full-width-input"
+      ></textarea>
+    </div>
+
     <div v-for="(exp, index) in props.resumeData.experience" :key="exp.id || index" class="list-item card-nested">
       <div class="item-header">
         <h4>工作经历 #{{ index + 1 }}</h4>
@@ -39,6 +52,9 @@
           ></textarea>
           <button @click="removeResponsibility(index, rIndex)" class="button-remove-inline" aria-label="删除此条职责">&times;</button>
         </div>
+        <div class="ai-suggestion-controls">
+          <button @click="fetchAISuggestions(exp, 'responsibility', rIndex)" class="button-ai-suggestion small-button">✨ 获取AI建议</button>
+        </div>
         <button @click="addResponsibility(index)" class="button-add-inline">+ 添加职责</button>
       </div>
 
@@ -52,15 +68,51 @@
           ></textarea>
           <button @click="removeAchievement(index, aIndex)" class="button-remove-inline" aria-label="删除此条成就">&times;</button>
         </div>
+        <div class="ai-suggestion-controls">
+          <button @click="fetchAISuggestions(exp, 'achievement', aIndex)" class="button-ai-suggestion small-button">✨ 获取AI建议</button>
+        </div>
         <button @click="addAchievement(index)" class="button-add-inline">+ 添加成就</button>
       </div>
     </div>
     <button @click="addExperience" class="button-add full-width-button">+ 添加工作经历</button>
+
+    <!-- AI Suggestion Modal -->
+    <div v-if="showSuggestionModal" class="modal-backdrop">
+      <div class="modal-content">
+        <h3>AI 建议</h3>
+        <p v-if="suggestionTarget && suggestionTarget.originalText">
+          <strong>原内容:</strong> {{ suggestionTarget.originalText }}
+        </p>
+        <div v-if="currentSuggestions.length > 0">
+          <ul>
+            <li v-for="(suggestion, sIndex) in currentSuggestions" :key="sIndex" class="suggestion-item">
+              <p><strong>建议 {{ sIndex + 1 }}:</strong> {{ suggestion.suggested_text }}</p>
+              <p v-if="suggestion.explanation"><em>说明: {{ suggestion.explanation }}</em></p>
+              <button @click="applySuggestion(suggestion.suggested_text)" class="button-primary small-button">应用此建议</button>
+            </li>
+          </ul>
+        </div>
+        <p v-else>
+          AI 未能提供建议或返回空建议。
+        </p>
+        <button @click="closeSuggestionModal" class="button-secondary full-width-button">关闭</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, ref } from 'vue';
+import { getAIContentSuggestions } from '../../services/api'; // Import the API function
+
+// Reactive variable for job context text
+const jobContextText = ref('');
+
+// State for AI Suggestions Modal
+const currentSuggestions = ref([]);
+const suggestionTarget = ref(null); // Will store { experienceItem, fieldType, index, originalText }
+const showSuggestionModal = ref(false);
+
 
 // 修改: 接收 resumeData prop
 const props = defineProps({
@@ -132,10 +184,169 @@ const removeAchievement = (experienceIndex, achievementIndex) => {
     exp.achievements.splice(achievementIndex, 1);
   }
 };
+
+// --- AI Suggestions ---
+const closeSuggestionModal = () => {
+  showSuggestionModal.value = false;
+  currentSuggestions.value = [];
+  suggestionTarget.value = null;
+};
+
+const applySuggestion = (suggestionText) => {
+  if (suggestionTarget.value) {
+    const { experienceItem, fieldType, itemIndex } = suggestionTarget.value;
+    if (fieldType === 'responsibility') {
+      experienceItem.responsibilities[itemIndex] = suggestionText;
+    } else if (fieldType === 'achievement') {
+      experienceItem.achievements[itemIndex] = suggestionText;
+    }
+    closeSuggestionModal();
+  }
+};
+
+const fetchAISuggestions = async (experienceItem, fieldType, itemIndex) => { // Renamed 'index' to 'itemIndex' for clarity
+  // Clear previous suggestions and close modal if already open for a different target
+  if (showSuggestionModal.value) {
+    closeSuggestionModal();
+  }
+
+  if (!jobContextText.value.trim()) {
+    alert('请输入职位描述或相关关键词，以便AI提供建议。');
+    return;
+  }
+
+  let currentText = '';
+  let sectionType = '';
+  const sectionData = {
+    for_role: experienceItem.role,
+    for_company: experienceItem.company,
+  };
+
+  if (fieldType === 'responsibility') {
+    currentText = experienceItem.responsibilities[itemIndex];
+    sectionType = 'experience_responsibility';
+    sectionData.current_text = currentText;
+  } else if (fieldType === 'achievement') {
+    currentText = experienceItem.achievements[itemIndex];
+    sectionType = 'experience_achievement';
+    sectionData.current_text = currentText;
+  } else {
+    console.error("Invalid fieldType for AI suggestion:", fieldType);
+    return;
+  }
+
+  if (!currentText.trim()) {
+    alert(`请输入当前的${fieldType === 'responsibility' ? '职责' : '成就'}内容，以便AI提供建议。`);
+    return;
+  }
+
+  const requestPayload = {
+    section_data: sectionData,
+    context_text: jobContextText.value,
+    section_type: sectionType,
+  };
+
+  console.log("Sending AI Suggestion Request:", JSON.stringify(requestPayload, null, 2));
+
+  try {
+    const response = await getAIContentSuggestions(requestPayload);
+    console.log("AI Suggestion Response:", response);
+
+    if (response && response.suggestions) {
+      currentSuggestions.value = response.suggestions;
+      suggestionTarget.value = { experienceItem, fieldType, itemIndex, originalText: currentText };
+      showSuggestionModal.value = true;
+    } else {
+      currentSuggestions.value = [];
+      suggestionTarget.value = null; // Clear target if no suggestions
+      alert("AI 未能提供建议或返回空建议。");
+    }
+  } catch (error) {
+    console.error("Error fetching AI suggestions:", error);
+    currentSuggestions.value = [];
+    suggestionTarget.value = null;
+    alert("获取AI建议失败，请查看控制台了解详情。");
+  }
+};
 </script>
 
 <style scoped>
 @import './formStyles.css';
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it's on top */
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  width: 90%;
+  max-width: 600px; /* Max width for the modal */
+  max-height: 80vh; /* Max height */
+  overflow-y: auto; /* Scroll if content overflows */
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.4rem;
+  color: #333;
+}
+
+.modal-content ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.suggestion-item {
+  border: 1px solid #eee;
+  padding: 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+
+.suggestion-item p {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+.suggestion-item p strong {
+ color: #555;
+}
+.suggestion-item em {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.suggestion-item button {
+  margin-top: 10px;
+  margin-right: 5px; /* Spacing for buttons if multiple are added */
+}
+
+.modal-content .button-secondary {
+  margin-top: 20px;
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+}
+.modal-content .button-secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+}
 
 .list-item {
   margin-bottom: 20px;
@@ -204,6 +415,43 @@ const removeAchievement = (experienceIndex, achievementIndex) => {
 .button-remove-inline:hover {
   background-color: #ffcdd2;
 }
+
+.full-width-input {
+  width: 100%;
+  box-sizing: border-box; /* Ensures padding doesn't expand it beyond 100% */
+}
+
+.ai-suggestion-controls {
+  margin-top: 5px;
+  margin-bottom: 10px; /* Add some space before "add" button */
+  text-align: left; /* Align button to the left */
+}
+.button-ai-suggestion {
+  background-color: #e3f2fd; /* Light blue */
+  color: #0d47a1; /* Dark blue */
+  border-color: #90caf9;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+.button-ai-suggestion:hover {
+  background-color: #bbdefb;
+}
+
+/* Ensure small-button and full-width-button styles are available or define them */
+.small-button {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+}
+.full-width-button {
+  width: 100%;
+  padding: 10px;
+}
+
+
 /* 确保 two-columns 和 form-group 样式已在 formStyles.css 或此处定义 */
 .grid-container {
   display: grid;

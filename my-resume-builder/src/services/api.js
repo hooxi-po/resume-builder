@@ -57,4 +57,17 @@ apiClient.interceptors.response.use(
   }
 );
 
+// New function for AI content suggestions
+export const getAIContentSuggestions = async (suggestionRequest) => {
+  try {
+    const response = await apiClient.post('/ai/suggest-content', suggestionRequest);
+    return response.data; // Return the JSON response from the API
+  } catch (error) {
+    // The error interceptor should handle logging and generic error messages.
+    // Specific handling can be done in the component calling this function.
+    console.error('Error in getAIContentSuggestions:', error.response?.data || error.message);
+    throw error; // Re-throw to allow component-level error handling
+  }
+};
+
 export default apiClient;
